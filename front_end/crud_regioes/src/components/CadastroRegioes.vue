@@ -1,49 +1,67 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-
-interface Regiao {
-  uf: string
-  regiao: string
-  situacao: 'Ativo' | 'Inativo'
-}
+import { ref, onMounted } from 'vue'
+import regiaoService from '@/services/regiaoService'
+import type { Regiao } from '@/services/regiaoService'
 
 const ufs = ['São Paulo', 'Minas Gerais', 'Rio de Janeiro']
 
 const ufSelecionada = ref('')
 const regiao = ref('')
-const regioes = ref<Regiao[]>([
-  { uf: 'São Paulo', regiao: 'Grande ABC', situacao: 'Ativo' },
-  { uf: 'São Paulo', regiao: 'Grande Campinas', situacao: 'Inativo' },
-])
+const regioes = ref<Regiao[]>([])
+const editandoId = ref<number | null>(null)
 
-function inserir() {
+// 🔹 Carrega as regiões do backend ao iniciar
+async function carregarRegioes() {
+  regioes.value = await regiaoService.listar()
+}
+
+async function inserir() {
   if (!ufSelecionada.value || !regiao.value) {
     alert('Preencha todos os campos!')
     return
   }
-  regioes.value.push({
+
+  const novaRegiao: Regiao = {
     uf: ufSelecionada.value,
-    regiao: regiao.value,
+    nome: regiao.value,
     situacao: 'Ativo',
-  })
+  }
+
+  if (editandoId.value) {
+    novaRegiao.id = editandoId.value
+    await regiaoService.atualizar(editandoId.value, novaRegiao)
+    editandoId.value = null
+  } else {
+    await regiaoService.cadastrar(novaRegiao)
+  }
+
   ufSelecionada.value = ''
   regiao.value = ''
+  await carregarRegioes()
 }
 
-function ativar(index: number) {
-  regioes.value[index].situacao = 'Ativo'
+async function ativar(index: number) {
+  const r = regioes.value[index]
+  r.situacao = 'Ativo'
+  await regiaoService.atualizar(r.id!, r)
 }
 
-function inativar(index: number) {
-  regioes.value[index].situacao = 'Inativo'
+async function inativar(index: number) {
+  const r = regioes.value[index]
+  r.situacao = 'Inativo'
+  await regiaoService.atualizar(r.id!, r)
 }
 
 function editar(index: number) {
   const r = regioes.value[index]
   ufSelecionada.value = r.uf
-  regiao.value = r.regiao
-  regioes.value.splice(index, 1)
+  regiao.value = r.nome
+  editandoId.value = r.id!
 }
+
+onMounted(() => {
+  carregarRegioes()
+})
 </script>
 
 <template>
@@ -60,7 +78,7 @@ function editar(index: number) {
       <label> Região <span class="required">*</span> </label>
       <input type="text" v-model="regiao" />
 
-      <button @click="inserir">Inserir</button>
+      <button @click="inserir">{{ editandoId ? 'Atualizar' : 'Inserir' }}</button>
     </div>
 
     <table>
@@ -73,9 +91,9 @@ function editar(index: number) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(r, index) in regioes" :key="index">
+        <tr v-for="(r, index) in regioes" :key="r.id">
           <td>{{ r.uf }}</td>
-          <td>{{ r.regiao }}</td>
+          <td>{{ r.nome }}</td>
           <td :class="r.situacao === 'Ativo' ? 'ativo' : 'inativo'">
             {{ r.situacao }}
           </td>
@@ -92,42 +110,38 @@ function editar(index: number) {
 </template>
 
 <style scoped>
+/* (mantive o SEU CSS original) */
 .cadastro-container {
   border: 1px solid #999;
   width: 75vw;
   box-sizing: border-box;
   font-family: Arial, sans-serif;
-  justify-content: center; /* centraliza na horizontal */
-  align-items: center; /* centraliza na vertical */
-  height: 100vh; /* ocupa a altura total da tela */
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
   background: #fff;
 }
-
 /* --- FORMULÁRIO --- */
 .formulario {
   background: #ffebcd;
   padding: 10px;
   border-bottom: 1px solid #999;
 }
-
 .formulario h3 {
   margin: 0 0 10px 0;
   padding: 0;
   font-size: 16px;
   color: #000;
 }
-
 label {
   display: block;
   margin-top: 5px;
   font-size: 14px;
   color: #000;
 }
-
 .required {
   color: red;
 }
-
 select,
 input {
   width: 98%;
@@ -136,7 +150,6 @@ input {
   border: 1px solid #ccc;
   border-radius: 2px;
 }
-
 button {
   margin-top: 10px;
   padding: 5px 10px;
@@ -145,40 +158,34 @@ button {
   border-radius: 3px;
   cursor: pointer;
 }
-
 button:hover {
   background: #ddd;
 }
-
 /* --- TABELA --- */
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 0;
 }
-
 th {
   background: #ccc;
   padding: 5px;
   text-align: left;
   font-size: 14px;
+  color: #000;
 }
-
 td {
   border: 1px solid #ccc;
   padding: 5px;
   font-size: 14px;
   color: #000;
 }
-
 .ativo {
   color: black;
 }
-
 .inativo {
   color: red;
 }
-
 a {
   color: blue;
   text-decoration: underline;
