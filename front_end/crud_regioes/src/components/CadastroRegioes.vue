@@ -59,6 +59,15 @@ function editar(index: number) {
   editandoId.value = r.id!
 }
 
+// Função para excluir
+async function excluir(index: number) {
+  const r = regioes.value[index]
+  if (confirm(`Deseja realmente excluir a região "${r.nome}" (${r.uf})?`)) {
+    await regiaoService.excluir(r.id!)
+    await carregarRegioes()
+  }
+}
+
 onMounted(() => {
   carregarRegioes()
 })
@@ -102,6 +111,8 @@ onMounted(() => {
             <a href="#" @click.prevent="r.situacao === 'Ativo' ? inativar(index) : ativar(index)">
               {{ r.situacao === 'Ativo' ? 'Inativar' : 'Ativar' }}
             </a>
+            |
+            <a href="#" @click.prevent="excluir(index)" style="color: red">Excluir</a>
           </td>
         </tr>
       </tbody>
