@@ -93,37 +93,48 @@ namespace CadastroApi.Controllers
 
         // ✅ POST: api/regiao → Criar uma nova região
         [HttpPost]
-        public async Task<ActionResult<Regiao>> Post(Regiao regiao)
+        public async Task<IActionResult> Post(Regiao regiao)
         {
+            // 🔹 Verifica se já existe uma região com o mesmo UF e Nome
+            bool existe = await _context.Regioes
+                .AnyAsync(r => r.Uf == regiao.Uf && r.Nome == regiao.Nome);
+
+            if (existe)
+            {
+                return BadRequest("Já existe uma região com este nome para este estado (UF).");
+            }
+
             _context.Regioes.Add(regiao);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetById), new { id = regiao.Id }, regiao);
         }
 
+
         // ✅ PUT: api/regiao/5 → Atualizar uma região
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(int id, Regiao regiao)
         {
             if (id != regiao.Id)
-                return BadRequest("ID da URL e do objeto não coincidem.");
+            {
+                return BadRequest("ID da região não corresponde.");
+            }
+
+            // 🔹 Verifica se já existe outra região com o mesmo UF e Nome (exceto ela mesma)
+            bool existe = await _context.Regioes
+                .AnyAsync(r => r.Uf == regiao.Uf && r.Nome == regiao.Nome && r.Id != id);
+
+            if (existe)
+            {
+                return BadRequest("Já existe outra região com este nome para este estado (UF).");
+            }
 
             _context.Entry(regiao).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.Regioes.Any(r => r.Id == id))
-                    return NotFound($"Região com ID {id} não encontrada.");
-
-                throw;
-            }
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
+
 
         // ✅ DELETE: api/regiao/5 → Excluir uma região
         [HttpDelete("{id}")]
